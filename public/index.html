@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gas Detection Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <h1>🔍 Gas Detection Dashboard</h1>
+        <div class="connection-status" id="connectionStatus">Disconnected</div>
+      </div>
+    </header>
+
+    <!-- Main Dashboard -->
+    <div class="dashboard">
+      <!-- Left Panel: Current Readings -->
+      <section class="panel readings-panel">
+        <h2>Current Readings</h2>
+        <div class="readings-grid">
+          <div class="reading-card">
+            <label>Gas Level</label>
+            <div class="reading-value" id="currentGasLevel">--</div>
+            <div class="reading-unit">ppm</div>
+          </div>
+          <div class="reading-card">
+            <label>Threshold</label>
+            <div class="reading-value" id="currentThreshold">--</div>
+            <div class="reading-unit">ppm</div>
+          </div>
+          <div class="reading-card">
+            <label>Status</label>
+            <div class="reading-value status" id="gasStatus">SAFE</div>
+          </div>
+        </div>
+        
+        <!-- Status Indicators -->
+        <div class="status-indicators">
+          <div class="indicator" id="fanIndicator">
+            <div class="indicator-light"></div>
+            <span>Fan</span>
+          </div>
+          <div class="indicator" id="buzzerIndicator">
+            <div class="indicator-light"></div>
+            <span>Buzzer</span>
+          </div>
+          <div class="indicator" id="gasIndicator">
+            <div class="indicator-light"></div>
+            <span>Gas Detected</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Statistics -->
+      <section class="panel stats-panel">
+        <h2>Statistics</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <label>Peak Gas Level</label>
+            <div class="stat-value" id="peakGasLevel">--</div>
+          </div>
+          <div class="stat-card">
+            <label>Detections</label>
+            <div class="stat-value" id="totalDetections">--</div>
+          </div>
+          <div class="stat-card">
+            <label>Detection Time</label>
+            <div class="stat-value" id="totalDetectionTime">--</div>
+          </div>
+          <div class="stat-card">
+            <label>Fan Runtime</label>
+            <div class="stat-value" id="totalFanRuntime">--</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Graph Panel -->
+    <section class="panel graph-panel">
+      <h2>Gas Level Trend</h2>
+      <canvas id="gasChart"></canvas>
+    </section>
+
+    <!-- Event Timeline -->
+    <section class="panel timeline-panel">
+      <h2>Event Timeline</h2>
+      <div class="timeline" id="eventTimeline">
+        <div class="timeline-placeholder">Waiting for events...</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
