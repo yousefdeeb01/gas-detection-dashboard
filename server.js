@@ -45,6 +45,8 @@ app.get('/api/initial-data', (req, res) => {
 function handleArduinoData(line) {
   const timestamp = Date.now();
   
+  console.log('Received data:', line);
+  
   // Parse data from format: "Gas:XXX Threshold:YYY Fan:ZZZ Buzzer:WWW"
   const gasMatch = line.match(/Gas:(\d+)/);
   const thresholdMatch = line.match(/Threshold:(\d+)/);
@@ -58,6 +60,8 @@ function handleArduinoData(line) {
     const buzzerOn = buzzerMatch ? parseInt(buzzerMatch[1]) > 500 : false;
     const gasDetected = gasValue > threshold;
     
+    console.log(`📊 Gas: ${gasValue}, Threshold: ${threshold}, Fan: ${fanOn}, Buzzer: ${buzzerOn}`);
+    
     // Update stats
     if (gasValue > stats.maxGasLevel) {
       stats.maxGasLevel = gasValue;
@@ -68,21 +72,25 @@ function handleArduinoData(line) {
       stats.currentDetectionStart = timestamp;
       stats.totalDetections++;
       logEvent('Gas Detected', 'danger');
+      console.log('⚠️ GAS DETECTED!');
     } else if (!gasDetected && stats.currentDetectionStart) {
       const duration = timestamp - stats.currentDetectionStart;
       stats.totalDetectionTime += duration;
       stats.currentDetectionStart = null;
       logEvent('Gas Clear', 'success');
+      console.log('✓ Gas cleared');
     }
     
     // Track fan runtime
     if (fanOn && !stats.fanActivationTime) {
       stats.fanActivationTime = timestamp;
       logEvent('Fan Activated', 'info');
+      console.log('🌬️ Fan activated');
     } else if (!fanOn && stats.fanActivationTime) {
       stats.totalFanRuntime += timestamp - stats.fanActivationTime;
       stats.fanActivationTime = null;
       logEvent('Fan Deactivated', 'info');
+      console.log('🌬️ Fan deactivated');
     }
     
     // Store data point
@@ -130,7 +138,7 @@ function broadcastMessage(message) {
 }
 
 wss.on('connection', (ws) => {
-  console.log('Client connected');
+  console.log('✓ Browser connected');
   
   // Send initial data
   ws.send(JSON.stringify({
@@ -142,21 +150,24 @@ wss.on('connection', (ws) => {
   }));
   
   ws.on('close', () => {
-    console.log('Client disconnected');
+    console.log('✕ Browser disconnected');
   });
 });
 
 // Start server
 server.listen(PORT, () => {
-  console.log(`Dashboard server running at http://localhost:${PORT}`);
-  console.log('Waiting for Arduino connection on COM ports...');
-  console.log('Connect your Arduino now!');
+  console.log(`\n🚀 Dashboard server running at http://localhost:${PORT}`);
+  console.log('\n📍 Connection Status: Waiting for Arduino...');
+  console.log('Connect your Arduino via USB now!\n');
   
   // Try to detect and connect to Arduino
-  tryConnectArduino();
+  attemptArduinoConnection();
 });
 
-async function tryConnectArduino() {
+let serialPort = null;
+let portBuffer = '';
+
+async function attemptArduinoConnection() {
   try {
     // Try to import serialport
     const { SerialPort } = require('serialport');
@@ -166,20 +177,24 @@ async function tryConnectArduino() {
     console.log('Available COM ports:', ports.map(p => p.path));
     
     if (ports.length === 0) {
-      console.log('No COM ports found. Waiting for Arduino...');
-      setTimeout(tryConnectArduino, 5000);
+      console.log('❌ No COM ports found. Retrying in 5 seconds...');
+      setTimeout(attemptArduinoConnection, 5000);
       return;
     }
     
-    const port = new SerialPort({
-      path: ports[0].path,
+    // Try first available port
+    const portPath = ports[0].path;
+    console.log(`\n🔌 Attempting to connect to ${portPath}...`);
+    
+    serialPort = new SerialPort({
+      path: portPath,
       baudRate: 9600
     });
     
-    const parser = port.pipe(new ReadlineParser({ delimiter: '\r\n' }));
+    const parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
     
-    port.on('open', () => {
-      console.log(`✓ Arduino connected on ${ports[0].path}`);
+    serialPort.on('open', () => {
+      console.log(`✅ Arduino connected on ${portPath}!\n`);
       isConnected = true;
       broadcastMessage({ type: 'connected', message: 'Arduino connected!' });
       logEvent('Arduino Connected', 'success');
@@ -189,27 +204,31 @@ async function tryConnectArduino() {
       handleArduinoData(line);
     });
     
-    port.on('error', (err) => {
-      console.error('Serial port error:', err.message);
+    serialPort.on('error', (err) => {
+      console.error('❌ Serial port error:', err.message);
       isConnected = false;
       broadcastMessage({ type: 'error', message: 'Arduino error: ' + err.message });
     });
     
-    port.on('close', () => {
-      console.log('Arduino disconnected');
+    serialPort.on('close', () => {
+      console.log('❌ Arduino disconnected. Retrying in 5 seconds...');
       isConnected = false;
       broadcastMessage({ type: 'disconnected', message: 'Arduino disconnected' });
       logEvent('Arduino Disconnected', 'warning');
-      setTimeout(tryConnectArduino, 5000);
+      setTimeout(attemptArduinoConnection, 5000);
     });
     
   } catch (error) {
-    console.log('SerialPort not available - install it with: npm install serialport');
-    console.log('For now, dashboard is in DEMO mode');
+    console.log('\n⚠️  SerialPort module not found.');
+    console.log('To connect to Arduino, install with: npm install serialport');
+    console.log('\nFor development, the dashboard will accept manual data via API.\n');
   }
 }
 
 process.on('SIGINT', () => {
-  console.log('Server shutting down');
+  console.log('\n\nServer shutting down...');
+  if (serialPort) {
+    serialPort.close();
+  }
   process.exit();
 });
