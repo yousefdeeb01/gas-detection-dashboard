@@ -170,13 +170,11 @@ server.listen(PORT, () => {
 });
 
 let serialPort = null;
-let portBuffer = '';
 
 async function attemptArduinoConnection() {
   try {
     // Try to import serialport
-    const { SerialPort } = require('serialport');
-    const { ReadlineParser } = require('@serialport/parser-readline');
+    const { SerialPort, ReadlineParser } = require('serialport');
     
     const ports = await SerialPort.list();
     console.log('🔍 Available COM ports:', ports.length > 0 ? ports.map(p => `${p.path} (${p.manufacturer || 'Unknown'})`).join(', ') : 'None');
