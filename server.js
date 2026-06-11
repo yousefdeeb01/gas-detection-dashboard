@@ -9,6 +9,8 @@ const wss = new WebSocket.Server({ server });
 
 const PORT = 3000;
 let isConnected = false;
+let connectionRetries = 0;
+const MAX_RETRIES = 10;
 
 // Data storage
 let dataPoints = [];
@@ -45,7 +47,7 @@ app.get('/api/initial-data', (req, res) => {
 function handleArduinoData(line) {
   const timestamp = Date.now();
   
-  console.log('Received data:', line);
+  console.log('📨 Received data:', line);
   
   // Parse data from format: "Gas:XXX Threshold:YYY Fan:ZZZ Buzzer:WWW"
   const gasMatch = line.match(/Gas:(\d+)/);
@@ -114,6 +116,9 @@ function handleArduinoData(line) {
       data: dataPoint,
       stats: stats
     });
+  } else {
+    console.warn('⚠️ Invalid data format received:', line);
+    console.warn('Expected format: Gas:XXX Threshold:YYY Fan:ZZZ Buzzer:WWW');
   }
 }
 
@@ -174,17 +179,26 @@ async function attemptArduinoConnection() {
     const { ReadlineParser } = require('@serialport/parser-readline');
     
     const ports = await SerialPort.list();
-    console.log('Available COM ports:', ports.map(p => p.path));
+    console.log('🔍 Available COM ports:', ports.length > 0 ? ports.map(p => `${p.path} (${p.manufacturer || 'Unknown'})`).join(', ') : 'None');
     
     if (ports.length === 0) {
-      console.log('❌ No COM ports found. Retrying in 5 seconds...');
-      setTimeout(attemptArduinoConnection, 5000);
+      connectionRetries++;
+      const retryMsg = connectionRetries <= MAX_RETRIES 
+        ? `Retrying in 5 seconds (${connectionRetries}/${MAX_RETRIES})...` 
+        : 'Max retries reached. Retrying every 30 seconds...';
+      console.log(`❌ No COM ports found. ${retryMsg}`);
+      const retryDelay = connectionRetries > MAX_RETRIES ? 30000 : 5000;
+      setTimeout(attemptArduinoConnection, retryDelay);
       return;
     }
+    
+    // Reset retry counter on successful port discovery
+    connectionRetries = 0;
     
     // Try first available port
     const portPath = ports[0].path;
     console.log(`\n🔌 Attempting to connect to ${portPath}...`);
+    console.log(`   (Manufacturer: ${ports[0].manufacturer || 'Unknown'})`);
     
     serialPort = new SerialPort({
       path: portPath,
@@ -219,15 +233,20 @@ async function attemptArduinoConnection() {
     });
     
   } catch (error) {
-    console.log('\n⚠️  SerialPort module not found.');
-    console.log('To connect to Arduino, install with: npm install serialport');
-    console.log('\nFor development, the dashboard will accept manual data via API.\n');
+    if (error.code === 'MODULE_NOT_FOUND' || error.message.includes('serialport')) {
+      console.log('\n⚠️ SerialPort module not found.');
+      console.log('📦 To connect to Arduino, install with:');
+      console.log('   npm install serialport');
+      console.log('\n💡 For development, the dashboard will accept data via REST API.\n');
+    } else {
+      console.error('Unexpected error:', error);
+    }
   }
 }
 
 process.on('SIGINT', () => {
   console.log('\n\nServer shutting down...');
-  if (serialPort) {
+  if (serialPort && serialPort.isOpen) {
     serialPort.close();
   }
   process.exit();
