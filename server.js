@@ -59,7 +59,7 @@ function handleArduinoData(line) {
     const gasValue = parseInt(gasMatch[1]);
     const threshold = thresholdMatch ? parseInt(thresholdMatch[1]) : 200;
     const fanOn = fanMatch ? parseInt(fanMatch[1]) > 500 : false;
-    const buzzerOn = buzzerMatch ? parseInt(buzzerMatch[1]) > 500 : false;
+    const buzzerOn = buzzerMatch ? parseInt(buzzerMatch[1]) > 0 : false;
     const gasDetected = gasValue > threshold;
     
     console.log(`📊 Gas: ${gasValue}, Threshold: ${threshold}, Fan: ${fanOn}, Buzzer: ${buzzerOn}`);
